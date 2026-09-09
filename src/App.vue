@@ -42,7 +42,9 @@
                   </q-avatar>
                 </q-item-section>
                 <q-item-section>
-                  <q-item-label class="text-bold">{{ servicio.equipo }}</q-item-label>
+                  <q-item-label class="text-bold">
+                    {{ servicio.marca && servicio.modelo ? `${servicio.marca} ${servicio.modelo}` : servicio.equipo }}
+                  </q-item-label>
                   <q-item-label style="font-size: 20px;" caption>Cliente: {{ servicio.cliente }}</q-item-label>
                 </q-item-section>
               </q-item>
@@ -116,13 +118,42 @@
               :rules="[textoObligatorio('El cliente'), nombreClienteValido]"
             />
 
-            <q-input
-              v-model="equipo"
-              type="text"
-              label="Marca y modelo del equipo"
+            <q-select
+              v-model="marca"
+              :options="opcionesMarcas"
+              label="Marca del equipo"
               outlined
               dense
-              :rules="[textoObligatorio('El equipo')]"
+              input-class="text-left"
+              :rules="[val => !!val || 'Selecciona la marca del equipo']"
+            />
+
+            <q-input
+              v-if="marca === 'Otro'"
+              v-model="marcaOtro"
+              label="Escribe la marca"
+              outlined
+              dense
+              :rules="[textoObligatorio('La marca')]"
+            />
+
+            <q-select
+              v-model="modelo"
+              :options="opcionesModelos"
+              label="Modelo del equipo"
+              outlined
+              dense
+              input-class="text-left"
+              :rules="[val => !!val || 'Selecciona el modelo del equipo']"
+            />
+
+            <q-input
+              v-if="modelo === 'Otro'"
+              v-model="modeloOtro"
+              label="Escribe el modelo"
+              outlined
+              dense
+              :rules="[textoObligatorio('El modelo')]"
             />
 
             <q-field
@@ -280,7 +311,10 @@ const idEditando = ref(null)
 const idParaEliminar = ref(null)
 
 const cliente = ref('')
-const equipo = ref('')
+const marca = ref('')
+const marcaOtro = ref('')
+const modelo = ref('')
+const modeloOtro = ref('')
 const tipoReparacion = ref([])
 const detalleOtros = ref('')
 const tecnico = ref('')
@@ -300,6 +334,22 @@ const opcionesReparacion = [
   'Mantenimiento de software',
   'Cambio de flex',
   'Otros'
+]
+const opcionesMarcas = ['Apple', 'Samsung', 'Xiaomi', 'Motorola', 'Huawei', 'Oppo', 'Vivo', 'Nokia', 'Otro']
+const opcionesModelos = [
+  'iPhone 11',
+  'iPhone 12',
+  'iPhone 13',
+  'iPhone 14',
+  'Galaxy A12',
+  'Galaxy A23',
+  'Galaxy A32',
+  'Galaxy S21',
+  'Redmi Note 10',
+  'Redmi Note 11',
+  'Moto G20',
+  'Moto G30',
+  'Otro'
 ]
 const opcionesTecnicos = ['Don Efraín', 'Técnico 1', 'Técnico 2']
 const opcionesMetodo = ['Efectivo', 'Transferencia', 'Tarjeta']
@@ -344,7 +394,10 @@ function guardarEnLocalStorage() {
 function abrirModalCrear() {
   idEditando.value = null
   cliente.value = ''
-  equipo.value = ''
+  marca.value = ''
+  marcaOtro.value = ''
+  modelo.value = ''
+  modeloOtro.value = ''
   tipoReparacion.value = []
   detalleOtros.value = ''
   tecnico.value = ''
@@ -361,7 +414,10 @@ function abrirModalCrear() {
 function abrirModalEditar(servicio) {
   idEditando.value = servicio.id
   cliente.value = servicio.cliente
-  equipo.value = servicio.equipo
+  marca.value = opcionesMarcas.includes(servicio.marca) ? servicio.marca : servicio.marca ? 'Otro' : ''
+  marcaOtro.value = marca.value === 'Otro' ? servicio.marca : ''
+  modelo.value = opcionesModelos.includes(servicio.modelo) ? servicio.modelo : servicio.modelo ? 'Otro' : ''
+  modeloOtro.value = modelo.value === 'Otro' ? servicio.modelo : ''
   tipoReparacion.value = Array.isArray(servicio.tipoReparacion)
     ? servicio.tipoReparacion
     : servicio.tipoReparacion ? [servicio.tipoReparacion] : []
@@ -379,7 +435,8 @@ function abrirModalEditar(servicio) {
 
 function guardarServicio() {
   cliente.value = cliente.value.trim()
-  equipo.value = equipo.value.trim()
+  marcaOtro.value = marcaOtro.value.trim()
+  modeloOtro.value = modeloOtro.value.trim()
   detalleOtros.value = detalleOtros.value.trim()
   observaciones.value = observaciones.value.trim()
 
@@ -387,11 +444,16 @@ function guardarServicio() {
     return
   }
 
+  const marcaGuardada = marca.value === 'Otro' ? marcaOtro.value : marca.value
+  const modeloGuardado = modelo.value === 'Otro' ? modeloOtro.value : modelo.value
+
   if (idEditando.value !== null) {
     for (let i = 0; i < servicios.value.length; i++) {
       if (servicios.value[i].id === idEditando.value) {
         servicios.value[i].cliente = cliente.value
-        servicios.value[i].equipo = equipo.value
+        servicios.value[i].marca = marcaGuardada
+        servicios.value[i].modelo = modeloGuardado
+        servicios.value[i].equipo = `${marcaGuardada} ${modeloGuardado}`
         servicios.value[i].tipoReparacion = tipoReparacion.value
         servicios.value[i].detalleOtros = tipoReparacion.value.includes('Otros') ? detalleOtros.value : ''
         servicios.value[i].tecnico = tecnico.value
@@ -410,7 +472,9 @@ function guardarServicio() {
       id: Date.now(),
       fechaHora: new Date().toLocaleString(),
       cliente: cliente.value,
-      equipo: equipo.value,
+      marca: marcaGuardada,
+      modelo: modeloGuardado,
+      equipo: `${marcaGuardada} ${modeloGuardado}`,
       tipoReparacion: tipoReparacion.value,
       detalleOtros: tipoReparacion.value.includes('Otros') ? detalleOtros.value : '',
       tecnico: tecnico.value,
