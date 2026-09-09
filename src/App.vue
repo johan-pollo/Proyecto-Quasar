@@ -109,18 +109,20 @@
           <q-form @submit="guardarServicio" class="q-gutter-sm">
             <q-input
               v-model="cliente"
+              type="text"
               label="Nombre del cliente"
               outlined
               dense
-              :rules="[val => !!val || 'El cliente es obligatorio']"
+              :rules="[textoObligatorio('El cliente'), nombreClienteValido]"
             />
 
             <q-input
               v-model="equipo"
+              type="text"
               label="Marca y modelo del equipo"
               outlined
               dense
-              :rules="[val => !!val || 'El equipo es obligatorio']"
+              :rules="[textoObligatorio('El equipo')]"
             />
 
             <q-field
@@ -152,7 +154,7 @@
               outlined
               dense
               input-class="text-left"
-              :rules="[val => !!val || 'Describe el servicio seleccionado']"
+              :rules="[textoObligatorio('Describe el servicio seleccionado')]"
             />
 
             <q-select
@@ -171,9 +173,11 @@
               label="Precio cobrado"
               outlined
               dense
+              :input-attrs="{ min: 0, step: 0.01, inputmode: 'decimal' }"
               :rules="[
-                val => val !== '' && val !== null || 'El precio es obligatorio',
-                val => val >= 0 || 'Debe ser un valor positivo'
+                numeroObligatorio('El precio'),
+                numeroValido,
+                val => Number(val) >= 0 || 'Debe ser un valor positivo'
               ]"
             />
 
@@ -205,8 +209,10 @@
               outlined
               dense
               input-class="text-left"
+              :input-attrs="{ min: 0, step: 0.01, inputmode: 'decimal' }"
               :rules="[
-                val => val !== '' && val !== null || 'La cantidad abonada es obligatoria',
+                numeroObligatorio('La cantidad abonada'),
+                numeroValido,
                 val => Number(val) > 0 || 'Debe ser mayor que cero',
                 val => Number(val) <= Number(precio) || 'No puede superar el precio'
               ]"
@@ -235,6 +241,7 @@
               outlined
               dense
               rows="2"
+              :rules="[textoOpcional]"
             />
 
             <div class="row justify-end q-gutter-sm q-mt-md">
@@ -300,6 +307,27 @@ const opcionesMetodo = ['Efectivo', 'Transferencia', 'Tarjeta']
 const opcionesEstadoPago = ['Pagado', 'Pendiente', 'Abono']
 const opcionesEstadoEquipo = ['Recibido', 'En reparación', 'Listo para entregar', 'Entregado']
 
+function textoObligatorio(nombre) {
+  return val => typeof val === 'string' && val.trim().length > 0 || `${nombre} es obligatorio`
+}
+
+function nombreClienteValido(val) {
+  return /^[\p{L}]+(?:[ '\u2019-][\p{L}]+)*$/u.test(String(val).trim())
+    || 'El nombre solo puede contener letras, espacios, apóstrofes o guiones'
+}
+
+function textoOpcional(val) {
+  return !val || typeof val !== 'string' || val.trim().length > 0 || 'No puede contener solo espacios'
+}
+
+function numeroObligatorio(nombre) {
+  return val => val !== '' && val !== null && val !== undefined || `${nombre} es obligatorio`
+}
+
+function numeroValido(val) {
+  return /^\d+(\.\d+)?$/.test(String(val).trim()) || 'Solo se permiten números'
+}
+
 function alternarTipoReparacion(opcion) {
   tipoReparacion.value = tipoReparacion.value.includes(opcion)
     ? tipoReparacion.value.filter(item => item !== opcion)
@@ -351,6 +379,15 @@ function abrirModalEditar(servicio) {
 }
 
 function guardarServicio() {
+  cliente.value = cliente.value.trim()
+  equipo.value = equipo.value.trim()
+  detalleOtros.value = detalleOtros.value.trim()
+  observaciones.value = observaciones.value.trim()
+
+  if (nombreClienteValido(cliente.value) !== true) {
+    return
+  }
+
   if (idEditando.value !== null) {
     for (let i = 0; i < servicios.value.length; i++) {
       if (servicios.value[i].id === idEditando.value) {
