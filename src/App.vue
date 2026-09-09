@@ -135,12 +135,11 @@
             >
               <template #control>
                 <div class="full-width column items-start q-gutter-xs q-py-xs">
-                  <q-radio
+                  <q-checkbox
                     v-for="opcion in opcionesReparacion"
                     :key="opcion"
                     :model-value="tipoReparacion.includes(opcion)"
                     :label="opcion"
-                    :val="true"
                     @update:model-value="alternarTipoReparacion(opcion)"
                   />
                 </div>
