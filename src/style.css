@@ -60,6 +60,12 @@ body.desktop.no-touch.body--light {
   font-size: 20px;
 }
 
+.q-select .q-field__native,
+.q-select .q-field__input {
+  justify-content: flex-start;
+  text-align: left !important;
+}
+
 h1,
 h2 {
   font-family: var(--heading);

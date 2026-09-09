@@ -50,10 +50,12 @@
               <q-separator />
 
               <q-card-section class="q-gutter-xs">
-                <div><strong>Reparación:</strong> {{ servicio.tipoReparacion }}</div>
+                <div><strong>Reparación:</strong> {{ Array.isArray(servicio.tipoReparacion) ? servicio.tipoReparacion.join(', ') : servicio.tipoReparacion }}</div>
+                <div v-if="servicio.detalleOtros"><strong>Detalle:</strong> {{ servicio.detalleOtros }}</div>
                 <div><strong>Técnico:</strong> {{ servicio.tecnico }}</div>
                 <div><strong>Fecha:</strong> {{ servicio.fechaHora }}</div>
                 <div><strong>Precio:</strong> ${{ servicio.precio }}</div>
+                <div v-if="servicio.estadoPago === 'Abono'"><strong>Abonado:</strong> ${{ servicio.abono }}</div>
                 <div><strong>Método de pago:</strong> {{ servicio.metodoPago }}</div>
 
                 <div class="row items-center q-gutter-x-xs">
@@ -121,13 +123,36 @@
               :rules="[val => !!val || 'El equipo es obligatorio']"
             />
 
-            <q-select
-              v-model="tipoReparacion"
-              :options="opcionesReparacion"
+            <q-field
               label="Tipo de reparación"
+              borderless
+              dense
+              stack-label
+              :model-value="tipoReparacion"
+              :rules="[val => val && val.length > 0 || 'Selecciona al menos una reparación']"
+            >
+              <template #control>
+                <div class="full-width column items-start q-gutter-xs q-py-xs">
+                  <q-radio
+                    v-for="opcion in opcionesReparacion"
+                    :key="opcion"
+                    :model-value="tipoReparacion.includes(opcion)"
+                    :label="opcion"
+                    :val="true"
+                    @update:model-value="alternarTipoReparacion(opcion)"
+                  />
+                </div>
+              </template>
+            </q-field>
+
+            <q-input
+              v-if="tipoReparacion.includes('Otros')"
+              v-model="detalleOtros"
+              label="Detalle de otros servicios"
               outlined
               dense
-              :rules="[val => !!val || 'Selecciona una reparación']"
+              input-class="text-left"
+              :rules="[val => !!val || 'Describe el servicio seleccionado']"
             />
 
             <q-select
@@ -136,6 +161,7 @@
               label="Técnico que atendió"
               outlined
               dense
+              input-class="text-left"
               :rules="[val => !!val || 'Selecciona el técnico']"
             />
 
@@ -157,6 +183,7 @@
               label="Método de pago"
               outlined
               dense
+              input-class="text-left"
               :rules="[val => !!val || 'Selecciona método de pago']"
             />
 
@@ -166,15 +193,33 @@
               label="Estado del pago"
               outlined
               dense
+              input-class="text-left"
               :rules="[val => !!val || 'Selecciona estado de pago']"
+            />
+
+            <q-input
+              v-if="estadoPago === 'Abono'"
+              v-model="abono"
+              type="number"
+              label="Cantidad abonada"
+              outlined
+              dense
+              input-class="text-left"
+              :rules="[
+                val => val !== '' && val !== null || 'La cantidad abonada es obligatoria',
+                val => Number(val) > 0 || 'Debe ser mayor que cero',
+                val => Number(val) <= Number(precio) || 'No puede superar el precio'
+              ]"
             />
 
             <q-select
               v-model="estadoEquipo"
               :options="opcionesEstadoEquipo"
+              :option-disable="opcion => opcion === 'Entregado' && estadoPago !== 'Pagado'"
               label="Estado del equipo"
               outlined
               dense
+              input-class="text-right"
               :rules="[val => !!val || 'Selecciona estado del equipo']"
             />
 
@@ -218,7 +263,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 
 const datosGuardados = localStorage.getItem('servicios_taller')
 const servicios = ref(datosGuardados ? JSON.parse(datosGuardados) : [])
@@ -230,9 +275,11 @@ const idParaEliminar = ref(null)
 
 const cliente = ref('')
 const equipo = ref('')
-const tipoReparacion = ref('')
+const tipoReparacion = ref([])
+const detalleOtros = ref('')
 const tecnico = ref('')
 const precio = ref('')
+const abono = ref('')
 const metodoPago = ref('Efectivo')
 const estadoPago = ref('Pendiente')
 const estadoEquipo = ref('Recibido')
@@ -253,6 +300,16 @@ const opcionesMetodo = ['Efectivo', 'Transferencia', 'Tarjeta']
 const opcionesEstadoPago = ['Pagado', 'Pendiente', 'Abono']
 const opcionesEstadoEquipo = ['Recibido', 'En reparación', 'Listo para entregar', 'Entregado']
 
+function alternarTipoReparacion(opcion) {
+  tipoReparacion.value = tipoReparacion.value.includes(opcion)
+    ? tipoReparacion.value.filter(item => item !== opcion)
+    : [...tipoReparacion.value, opcion]
+
+  if (opcion === 'Otros' && !tipoReparacion.value.includes('Otros')) {
+    detalleOtros.value = ''
+  }
+}
+
 function guardarEnLocalStorage() {
   localStorage.setItem('servicios_taller', JSON.stringify(servicios.value))
 }
@@ -261,9 +318,11 @@ function abrirModalCrear() {
   idEditando.value = null
   cliente.value = ''
   equipo.value = ''
-  tipoReparacion.value = ''
+  tipoReparacion.value = []
+  detalleOtros.value = ''
   tecnico.value = ''
   precio.value = ''
+  abono.value = ''
   metodoPago.value = 'Efectivo'
   estadoPago.value = 'Pendiente'
   estadoEquipo.value = 'Recibido'
@@ -276,12 +335,16 @@ function abrirModalEditar(servicio) {
   idEditando.value = servicio.id
   cliente.value = servicio.cliente
   equipo.value = servicio.equipo
-  tipoReparacion.value = servicio.tipoReparacion
+  tipoReparacion.value = Array.isArray(servicio.tipoReparacion)
+    ? servicio.tipoReparacion
+    : servicio.tipoReparacion ? [servicio.tipoReparacion] : []
+  detalleOtros.value = servicio.detalleOtros || ''
   tecnico.value = servicio.tecnico
   precio.value = servicio.precio
+  abono.value = servicio.abono || ''
   metodoPago.value = servicio.metodoPago
-  estadoPago.value = servicio.estadoPago
   estadoEquipo.value = servicio.estadoEquipo
+  estadoPago.value = servicio.estadoPago
   calificacion.value = servicio.calificacion
   observaciones.value = servicio.observaciones
   modalAbierto.value = true
@@ -294,8 +357,10 @@ function guardarServicio() {
         servicios.value[i].cliente = cliente.value
         servicios.value[i].equipo = equipo.value
         servicios.value[i].tipoReparacion = tipoReparacion.value
+        servicios.value[i].detalleOtros = tipoReparacion.value.includes('Otros') ? detalleOtros.value : ''
         servicios.value[i].tecnico = tecnico.value
         servicios.value[i].precio = precio.value
+        servicios.value[i].abono = estadoPago.value === 'Abono' ? abono.value : ''
         servicios.value[i].metodoPago = metodoPago.value
         servicios.value[i].estadoPago = estadoPago.value
         servicios.value[i].estadoEquipo = estadoEquipo.value
@@ -311,8 +376,10 @@ function guardarServicio() {
       cliente: cliente.value,
       equipo: equipo.value,
       tipoReparacion: tipoReparacion.value,
+      detalleOtros: tipoReparacion.value.includes('Otros') ? detalleOtros.value : '',
       tecnico: tecnico.value,
       precio: precio.value,
+      abono: estadoPago.value === 'Abono' ? abono.value : '',
       metodoPago: metodoPago.value,
       estadoPago: estadoPago.value,
       estadoEquipo: estadoEquipo.value,
@@ -324,6 +391,12 @@ function guardarServicio() {
   guardarEnLocalStorage()
   modalAbierto.value = false
 }
+
+watch(estadoPago, nuevoEstadoPago => {
+  if (nuevoEstadoPago !== 'Pagado' && estadoEquipo.value === 'Entregado') {
+    estadoEquipo.value = 'Listo para entregar'
+  }
+})
 
 function pedirConfirmacionEliminar(id) {
   idParaEliminar.value = id
