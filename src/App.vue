@@ -81,7 +81,12 @@
 
                 <div v-if="servicio.estadoEquipo === 'Entregado'" class="row items-center">
                   <strong class="q-mr-xs">Calificación:</strong>
-                  <q-rating v-model="servicio.calificacion" readonly size="1em" color="amber" />
+                  <q-rating
+                    :model-value="servicio.calificacion || 0"
+                    size="1em"
+                    color="amber"
+                    @update:model-value="guardarCalificacion(servicio, $event)"
+                  />
                 </div>
 
                 <div v-if="servicio.observaciones" class="text-caption text-italic bg-grey-3 q-pa-xs rounded-borders q-mt-sm" style="font-size: 20px;">
@@ -91,7 +96,7 @@
 
               <q-separator />
 
-              <q-card-actions align="right">
+              <q-card-actions v-if="servicio.estadoEquipo !== 'Entregado'" align="right">
                 <q-btn flat icon="edit" color="primary" label="Editar" @click="abrirModalEditar(servicio)" />
                 <q-btn flat icon="delete" color="negative" label="Eliminar" @click="pedirConfirmacionEliminar(servicio.id)" />
               </q-card-actions>
@@ -259,11 +264,6 @@
               :rules="[val => !!val || 'Selecciona estado del equipo']"
             />
 
-            <div v-if="estadoEquipo === 'Entregado'" class="q-my-sm">
-              <div>Calificación del cliente:</div>
-              <q-rating v-model="calificacion" size="1.8em" color="amber" icon="star" />
-            </div>
-
             <q-input
               v-model="observaciones"
               type="textarea"
@@ -323,7 +323,6 @@ const abono = ref('')
 const metodoPago = ref('Efectivo')
 const estadoPago = ref('Pendiente')
 const estadoEquipo = ref('Recibido')
-const calificacion = ref(5)
 const observaciones = ref('')
 
 const opcionesReparacion = [
@@ -406,12 +405,15 @@ function abrirModalCrear() {
   metodoPago.value = 'Efectivo'
   estadoPago.value = 'Pendiente'
   estadoEquipo.value = 'Recibido'
-  calificacion.value = 5
   observaciones.value = ''
   modalAbierto.value = true
 }
 
 function abrirModalEditar(servicio) {
+  if (servicio.estadoEquipo === 'Entregado') {
+    return
+  }
+
   idEditando.value = servicio.id
   cliente.value = servicio.cliente
   marca.value = opcionesMarcas.includes(servicio.marca) ? servicio.marca : servicio.marca ? 'Otro' : ''
@@ -428,7 +430,6 @@ function abrirModalEditar(servicio) {
   metodoPago.value = servicio.metodoPago
   estadoEquipo.value = servicio.estadoEquipo
   estadoPago.value = servicio.estadoPago
-  calificacion.value = servicio.calificacion
   observaciones.value = servicio.observaciones
   modalAbierto.value = true
 }
@@ -450,6 +451,11 @@ function guardarServicio() {
   if (idEditando.value !== null) {
     for (let i = 0; i < servicios.value.length; i++) {
       if (servicios.value[i].id === idEditando.value) {
+        if (servicios.value[i].estadoEquipo === 'Entregado') {
+          modalAbierto.value = false
+          return
+        }
+
         servicios.value[i].cliente = cliente.value
         servicios.value[i].marca = marcaGuardada
         servicios.value[i].modelo = modeloGuardado
@@ -462,7 +468,6 @@ function guardarServicio() {
         servicios.value[i].metodoPago = metodoPago.value
         servicios.value[i].estadoPago = estadoPago.value
         servicios.value[i].estadoEquipo = estadoEquipo.value
-        servicios.value[i].calificacion = calificacion.value
         servicios.value[i].observaciones = observaciones.value
         break
       }
@@ -483,7 +488,7 @@ function guardarServicio() {
       metodoPago: metodoPago.value,
       estadoPago: estadoPago.value,
       estadoEquipo: estadoEquipo.value,
-      calificacion: calificacion.value,
+      calificacion: null,
       observaciones: observaciones.value
     }
     servicios.value.push(nuevoServicio)
@@ -499,13 +504,33 @@ watch(estadoPago, nuevoEstadoPago => {
 })
 
 function pedirConfirmacionEliminar(id) {
+  const servicio = servicios.value.find(item => item.id === id)
+  if (!servicio || servicio.estadoEquipo === 'Entregado') {
+    return
+  }
+
   idParaEliminar.value = id
   modalEliminarAbierto.value = true
 }
 
 function confirmarEliminar() {
+  const servicio = servicios.value.find(item => item.id === idParaEliminar.value)
+  if (!servicio || servicio.estadoEquipo === 'Entregado') {
+    modalEliminarAbierto.value = false
+    return
+  }
+
   servicios.value = servicios.value.filter(s => s.id !== idParaEliminar.value)
   guardarEnLocalStorage()
   idParaEliminar.value = null
+}
+
+function guardarCalificacion(servicio, valor) {
+  if (servicio.estadoEquipo !== 'Entregado') {
+    return
+  }
+
+  servicio.calificacion = valor
+  guardarEnLocalStorage()
 }
 </script>
